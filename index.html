@@ -1,0 +1,38 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#153b3c"><title>工具价格查询 · 2026 电子价目表</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f6f2;color:#183736;font:16px/1.55 "PingFang SC","Microsoft YaHei",sans-serif}header{background:#153b3c;color:#fff;border-bottom:5px solid #d6ed92}main,.wrap{max-width:920px;margin:auto;padding:28px 24px}.top,.bar,.paging{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-weight:650;letter-spacing:.08em}.brand:before{content:"";display:inline-block;width:21px;height:16px;vertical-align:-2px;margin-right:10px;background:repeating-linear-gradient(115deg,#d6ed92 0 4px,transparent 5px 8px)}button{cursor:pointer;color:inherit;font:inherit;border:1px solid #c8d1c8;border-radius:7px;background:white;padding:8px 14px}button:disabled{opacity:.38;cursor:default}header button{background:transparent;border-color:#76908b;font-size:14px}.hero{margin:24px 0 15px}h1{font-size:clamp(30px,5vw,46px);line-height:1.25;margin:0;letter-spacing:.035em}.search{background:white;border-radius:9px;display:flex;align-items:center;padding:0 14px;gap:12px}.glass{display:block;width:16px;height:16px;border:2px solid #52706a;border-radius:50%;position:relative}.glass:after{content:"";position:absolute;width:7px;height:2px;background:#52706a;right:-5px;bottom:-3px;transform:rotate(45deg)}input{flex:1;min-width:0;border:0;padding:16px 3px;font:inherit;color:#183736;background:transparent}.search button{color:#254844;border:0}.hot{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.hot button{color:#e2ede4;border:1px solid #708980;background:transparent;font-size:13px;padding:4px 11px}.bar{margin-bottom:13px}.bar h2{font-size:20px;margin:0}.count,.code,.paging{font-variant-numeric:tabular-nums}.count{font-size:14px;color:#516760}.entry{background:#fff;border:1px solid #d5dcd4;border-top:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:18px;align-items:center;padding:16px 21px}.entry:first-child{border-top:3px solid #37574e;border-radius:6px 6px 0 0}.entry:last-child{border-radius:0 0 6px 6px}.entry strong,.spec{overflow-wrap:anywhere}.code,.label{color:#5b7069;font-size:12px}.code{font-family:ui-monospace,monospace;letter-spacing:.045em}.price{text-align:right}.price b{font-size:21px;color:#245542}.paging{margin:20px 0;justify-content:center;font-size:14px}.empty{background:white;padding:30px;text-align:center}dialog{color:inherit;border:1px solid #becbc3;border-radius:12px;max-width:min(90vw,430px);padding:22px}dialog::backdrop{background:#09242380}dialog input{width:100%;border:1px solid #c8d1c8;padding:9px}dialog h2{margin:0}dialog button{margin:12px 8px 0 0}[hidden]{display:none!important}button:focus-visible,input:focus-visible{outline:3px solid #84b657;outline-offset:1px}@media(max-width:600px){main,.wrap{padding:20px 16px}.hero{margin:22px 0 15px}.entry{grid-template-columns:minmax(0,1fr) auto;gap:3px 13px;padding:14px}.spec{grid-column:1;font-size:14px}.price{grid-column:2;grid-row:1/3}.bar h2{font-size:18px}.hot{gap:6px}}
+</style></head><body><header><div class="wrap"><div class="top"><div class="brand">2026 电子价目表</div><button id="share">分享查询 ↗</button></div><div class="hero"><h1>工具价格查询</h1></div><div class="search"><i class="glass"></i><input id="q" type="search" aria-label="搜索产品编码、名称或规格" placeholder="输入产品编码、名称或规格" autocomplete="off"><button id="clear" hidden>清空</button></div><div class="hot"><button>直柄麻花钻</button><button>机用丝锥</button><button>车削负角刀片</button><button>回转顶尖</button></div></div></header><main><div class="bar"><h2 id="heading">产品目录</h2><span id="count" class="count" aria-live="polite"></span></div><div id="list"></div><div class="paging"><button id="prev">上一页</button><span id="pg"></span><button id="next">下一页</button></div></main>
+<dialog id="dlg"><h2>分享当前查询</h2><p>在微信中点右上角「···」，选择「发送给朋友」。也可以复制链接，发到聊天里。</p><input readonly aria-label="当前查询链接" id="link"><button id="copy">复制链接</button><button id="closeDlg">关闭</button><p role="status" id="msg"></p></dialog>
+<script>
+const $=id=>document.getElementById(id);
+async function start() {
+$('count').textContent='正在读取价目表…';
+document.querySelector('.paging').hidden=true;
+const response=await fetch('./prices.json', {cache:'no-cache'});
+if(!response.ok) throw new Error('价格文件读取失败');
+const products=await response.json();
+const rows=products.map(product=>[product['产品编码'],product['名称'],product['规格'],product['现行价']]);
+const norm=s=>String(s).normalize('NFKC').toLowerCase().replace(/[×＊]/g,'*');
+const keys=rows.map(r=>r.slice(0,3).map(norm).join(' '));
+const q=$('q'), size=30;
+let hits=[],page=0;
+function el(tag,cls,value){const a=document.createElement(tag);if(cls)a.className=cls;if(value!==undefined)a.textContent=value;return a}
+function draw(){
+ const pages=Math.ceil(hits.length/size), list=$('list');list.textContent='';
+ for(const r of hits.slice(page*size,(page+1)*size)){
+ const item=el('article','entry'),name=el('div'),spec=el('div','spec'),price=el('div','price');
+ name.append(el('strong','',r[1]),el('div','code',r[0]));spec.append(el('span','label','规格　'),document.createTextNode(r[2]));price.append(el('div','label','现行价'),el('b','',String(r[3])));item.append(name,spec,price);list.append(item)}
+ if(!hits.length)list.append(el('div','empty','没有找到匹配产品，请缩短关键词或检查产品编码。'));
+ $('prev').disabled=page===0;$('next').disabled=page+1>=pages;$('pg').textContent=(page+1)+' / '+pages;document.querySelector('.paging').hidden=pages<2;
+ $('count').textContent=hits.length.toLocaleString('en-US')+' 条记录';
+}
+function search(sync=true){const value=q.value.trim(),terms=norm(value).split(/\s+/).filter(Boolean);hits=terms.length?rows.filter((r,i)=>terms.every(t=>keys[i].includes(t))):rows;page=0;$('clear').hidden=!value;$('heading').textContent=value?'查询结果':'产品目录';if(sync&&/^https?:$/.test(location.protocol)){const u=new URL(location.href);if(value)u.searchParams.set('q',value);else u.searchParams.delete('q');history.replaceState(null,'',u)}draw()}
+q.value=new URL(location.href).searchParams.get('q')||'';search(false);q.oninput=()=>search();$('clear').onclick=()=>{q.value='';search();q.focus()};document.querySelectorAll('.hot button').forEach(b=>b.onclick=()=>{q.value=b.textContent;search()});
+function turn(delta){page+=delta;draw();$('heading').scrollIntoView()}$('prev').onclick=()=>turn(-1);$('next').onclick=()=>turn(1);
+$('share').onclick=()=>{const local=location.protocol==='file:';$('link').value=local?'':location.href;$('link').hidden=$('copy').hidden=local;$('dlg').querySelector('p').hidden=local;$('msg').textContent=local?'当前为本地副本，请通过在线地址分享。':'';if($('dlg').showModal)$('dlg').showModal();else $('dlg').setAttribute('open','')};$('closeDlg').onclick=()=>$('dlg').close?$('dlg').close():$('dlg').removeAttribute('open');$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('link').value);$('msg').textContent='链接已复制'}catch{$('link').select();$('msg').textContent=document.execCommand('copy')?'链接已复制':'请长按链接复制'}};
+}
+start().catch(()=>{
+  $('count').textContent='';
+  $('list').textContent=location.protocol==='file:'?'请通过网站地址打开，或使用单文件离线版。':'未能读取价目表，请刷新重试，并确认仓库中有 prices.json。';
+});
+</script></body></html>
